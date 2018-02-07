@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="vue.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="reset.css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+
+    <style>
+            body{
+                background-color: black;
+                font-family: 'Roboto', sans-serif;
+            }
+            #app{
+                width: 100%;
+                height: 100%;
+            }
+            .container {
+                width: 100%;
+                height: 100%;
+                display: grid;
+                grid-template-columns: 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5%;
+                grid-template-rows: 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5%;
+            }
+            .logo-text {
+                height: 100%;
+                display: flex;
+                justify-content: center; /* align horizontal */
+                align-items: center; /* align vertical */
+                font-size: 300px;
+                color: #fff;
+            }
+            .logo {
+                background-color: #FF2400;
+                position: relative;
+                grid-column: 5 / span 4;
+                grid-row: 5 / span 4;
+            }
+            .item1 {
+                grid-column: 1 / span 2;
+                grid-row: 1 / span 2;
+            }
+            .item2 {
+                grid-column: 3 / span 2;
+                grid-row: 1 / span 2;
+            }
+            .item3 {
+                grid-column: 1 / span 2;
+                grid-row: 3 / span 2;
+            }
+            .item4 {
+                grid-column: 3 / span 2;
+                grid-row: 3 / span 2;
+            }
+            .item5 {
+                grid-column: 5;
+                grid-row: 1;
+            }
+            .item6 {
+                grid-column: 6;
+                grid-row: 1;
+            }
+            .item7 {
+                grid-column: 7;
+                grid-row: 1;
+            }
+            .item8 {
+                grid-column: 8;
+                grid-row: 1;
+            }
+            .item9 {
+                grid-column: 5;
+                grid-row: 2;
+            }
+            .item10 {
+                grid-column: 6;
+                grid-row: 2;
+            }
+            .item11 {
+                grid-column: 7;
+                grid-row: 2;
+            }
+            .item12 {
+                grid-column: 8;
+                grid-row: 2;
+            }
+            .item13 {
+                grid-column: 5;
+                grid-row: 3;
+            }
+            .item14 {
+                grid-column: 6;
+                grid-row: 3;
+            }
+            .item15 {
+                grid-column: 7;
+                grid-row: 3;
+            }
+            .item16 {
+                grid-column: 8;
+                grid-row: 3;
+            }
+            .item17 {
+                grid-column: 5;
+                grid-row: 4;
+            }
+            .item18 {
+                grid-column: 6;
+                grid-row: 4;
+            }
+            .item19 {
+                grid-column: 7;
+                grid-row: 4;
+            }
+            .item20 {
+                grid-column: 8;
+                grid-row: 4;
+            }
+            .item21 {
+                grid-column: 1;
+                grid-row: 5;
+            }
+            .item22 {
+                grid-column: 2;
+                grid-row: 5;
+            }
+            .item23 {
+                grid-column: 3;
+                grid-row: 5;
+            }
+            .item24 {
+                grid-column: 4;
+                grid-row: 5;
+            }
+            .item25 {
+                grid-column: 1;
+                grid-row: 6;
+            }
+            .item26 {
+                grid-column: 2;
+                grid-row: 6;
+            }
+            .item27 {
+                grid-column: 3;
+                grid-row: 6;
+            }
+            .item28 {
+                grid-column: 4;
+                grid-row: 6;
+            }
+            .item29 {
+                grid-column: 1;
+                grid-row: 7;
+            }
+            .item30 {
+                grid-column: 2;
+                grid-row: 7;
+            }
+            .item31 {
+                grid-column: 3;
+                grid-row: 7;
+            }
+            .item32 {
+                grid-column: 4;
+                grid-row: 7;
+            }
+            .item33 {
+                grid-column: 1;
+                grid-row: 8;
+            }
+            .item34 {
+                grid-column: 2;
+                grid-row: 8;
+            }
+            .item35 {
+                grid-column: 3;
+                grid-row: 8;
+            }
+            .item36 {
+                grid-column: 4;
+                grid-row: 8;
+            }
+            video{
+                width: 100%;
+                height: 100%;
+            }
+            img{
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="logo">
+                <div class="logo-text">
+                    VOXPOP
+                </div>
+            </div>
+            <div v-for="(item,index) in fileList" v-bind:class="'item'+(index+1)">
+                <video v-if="item.video" v-bind:src="'output/'+item.file" v-bind:autoplay="index < 4" loop muted ></video>
+                <img v-if="item.image" v-bind:src="'output/'+item.file">
+            </div>
+        </div>
+    </div>
+    <script>
+var app5 = new Vue({
+  el: '#app',
+  data: {
+    files:['b5ae1caa3fe61946e82165ae38780958.silent.true.webm']
+  },
+  computed:{
+    fileList(){
+        return this.files.map(function (file){
+            let reg = new RegExp(".true.");
+            return {
+                video:file.endsWith(".webm"),
+                audio:file.endsWith(".ogg"),
+                image:file.endsWith(".png"),
+                showable:reg.test(file),
+                file:file
+            }
+        }).filter(function (file){
+            return file.showable && (file.image || file.video)
+        }).slice(0,37)
+    }
+  }
+})
+var socket = io.connect();
+
+socket.on('files',function (files){
+    app5.files = files
+    console.log("update")
+})
+    </script>
+</body>
+</html>

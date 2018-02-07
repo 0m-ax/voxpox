@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="reset.css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+</head>
+<body>
+    <canvas id="canvas" style="width:100%;height:100%;"></canvas>
+    <script>
+        function sleep(time){
+            return new Promise(function(resolve, reject){
+                setTimeout(resolve,time)
+            })
+        }
+        function waitForKeyPress(allowedKeys){
+            return new Promise(function(resolve, reject){
+                function event(e){
+                    
+                    if(allowedKeys){
+                        if(allowedKeys.indexOf(e.keyCode) !== -1){
+                            document.removeEventListener("keydown", event);
+                            resolve(e.keyCode)
+                        }
+                    }else{
+                        document.removeEventListener("keydown", event);
+                        resolve(e.keyCode)
+                    }
+                }
+                document.addEventListener("keydown",event)
+            })
+        }
+        class Canvas{
+            constructor(element){
+                this.element = element;
+                this.context = this.element.getContext('2d');
+                this.element.addEventListener('onresize', this.onResize.bind(this));
+                this.onResize()
+                requestAnimationFrame(this.draw.bind(this))
+            }
+            get width(){
+                return this.element.width;
+            }
+            get height(){
+                return this.element.height;
+            }
+            onResize(){
+                this.element.width = this.element.clientWidth;
+                this.element.height = this.element.clientHeight;
+            }
+            draw(){
+                this.context.clearRect(0, 0, this.width, this.height);
+                this.context.fillStyle = "black";
+                this.context.fillRect(0,0,this.width, this.height)
+                requestAnimationFrame(this.draw.bind(this))
+            }
+        }
+        class AppCanvas extends Canvas{
+            constructor(element,player){
+                super(element)
+                this.player = player;
+                this.image = ''
+                this.recording = false;
+                this.controlText = ['','',''];
+                this.mainText = ''
+            }
+            draw(){
+                super.draw()
+                if(this.image){
+
+                }
+                this.context.drawImage(this.player,0,0,1920,1080)
+                if(this.recording){
+                    let totalTime = this.recordingEnd - this.recordingStart;
+                    let currentTime = Date.now() - this.recordingStart;
+                    this.context.fillStyle = "red";
+                    this.context.beginPath();
+                    this.context.arc(this.width/2, (1080 - 16 - 64), 64, 0, 2*Math.PI*(currentTime/totalTime));
+                    this.context.lineTo(this.width/2, (1080 - 16 - 64))
+                    this.context.closePath();
+                    this.context.fill();
+                }
+                this.context.font = '100px Roboto';
+                this.context.fillStyle = "black";
+                this.context.fillText(this.mainText, (this.width/2)-(this.context.measureText(this.mainText).width/2), (this.height/2)-75);
+                this.context.fillStyle = "white";
+                this.context.fillText(this.mainText, (this.width/2)-(this.context.measureText(this.mainText).width/2), (this.height/2)+25);                                     
+                this.context.font = '92px Roboto';
+                this.context.fillStyle = "green";
+                this.context.fillText(this.controlText[0], ((this.width/3)-(this.width/6))-(this.context.measureText(this.controlText[0]).width)/2, this.height-16);
+                this.context.fillStyle = "blue";
+                this.context.fillText(this.controlText[1], ((this.width/3)*2-(this.width/6))-(this.context.measureText(this.controlText[1]).width)/2, this.height-16);
+                this.context.fillStyle = "red";
+                this.context.fillText(this.controlText[2], ((this.width/3)*3-(this.width/6))-(this.context.measureText(this.controlText[2]).width)/2, this.height-16);
+            }
+        }
+        class Recorder{
+            constructor(stream,coded = 'audio/webm'){
+                var videoStream = new MediaStream();
+                var videoTracks = stream.getVideoTracks().forEach(function(track) {
+                    videoStream.addTrack(track);
+                });
+                var audioStream = new MediaStream();
+                stream.getAudioTracks().forEach(function(track) {
+                    audioStream.addTrack(track);
+                });
+                var outputStream = new MediaStream();
+                [audioStream, videoStream].forEach(function(s) {
+                    s.getTracks().forEach(function(t) {
+                        outputStream.addTrack(t);
+                    });
+                });
+                this.mediaRecorder = new MediaRecorder(outputStream,{mimeType: coded})
+                this.mediaRecorder.ondataavailable = this.onDataAvailable.bind(this)
+                this.buffer = [];
+                this.savePromiseWaiting = null;
+            }
+            onDataAvailable(event){
+                this.buffer.push(event.data)
+                if(this.savePromiseWaiting){
+                    this.savePromiseWaiting()
+                    this.savePromiseWaiting = null;
+                }
+            }
+            start(){
+                this.mediaRecorder.start()
+            }
+            stop(){
+                return new Promise(function(resolve, reject){
+                    this.mediaRecorder.onstop = function (){
+                        this.mediaRecorder.onstop = null
+                        resolve(this.saveBuffer())
+                    }.bind(this)
+                    this.mediaRecorder.stop()
+                }.bind(this))
+            }
+            saveBuffer(){
+                let blob = new Blob(this.buffer, { type: 'video/webm'});
+                this.buffer = [];
+                return blob;
+            }
+        }
+
+        let player = document.createElement('video')
+        let app = new AppCanvas(document.getElementById('canvas'),player);
+        navigator.mediaDevices.getUserMedia({
+            video: { width: 1920, height: 1080 },
+            audio: true
+        })
+        .then(logicLoop)
+        function logicLoop(stream){
+            player.srcObject = stream
+            app.mainText = 'Please select an option';
+            app.controlText = ['video','photo','audio only']
+            return waitForKeyPress([49,50,51])
+            .then((key)=>{
+                if(key == 49){
+                    app.controlText = ['silent gif','','video & audio']
+                    
+                    return waitForKeyPress([49,51])
+                    .then((key)=>{
+                        if(key == 49){
+                            player.muted = true;
+                            var videoStream = new MediaStream();
+                            var videoTracks = stream.getVideoTracks().forEach(function(track) {
+                                videoStream.addTrack(track);
+                            });
+                            let rec = new Recorder(videoStream,'video/webm');
+                            app.mainText = 'Please a gif length';
+                            app.controlText = ['1s','5s','10s']
+                            return waitForKeyPress([49,50,51])
+                            .then((key)=>waitForStart().then(()=>{
+                                let recordingTime = 1000;
+                                if(key == 49){
+                                    recordingTime = 1000;
+                                }else if(key == 50){
+                                    recordingTime = 5000
+                                }else if(key == 51){
+                                    recordingTime = 10000;
+                                }
+                                app.recording = true;
+                                app.recordingStart = Date.now();
+                                app.recordingEnd = Date.now() + recordingTime;
+                                rec.start()
+                                return sleep(recordingTime)
+                                .then(()=>{
+                                    app.mainText = 'Loading...';
+                                    app.recording = false;
+                                    return rec.stop()
+                                })
+                                .then((data)=>{
+                                    player.srcObject = null
+                                    player.src = URL.createObjectURL(data);
+                                    player.loop = true;
+                                    return player.play().then(()=>end(data,'video'))
+                                })
+                            }))
+                        }else if(key == 51){
+                            let rec = new Recorder(stream);
+                            return waitForStart()
+                            .then(()=>{
+                                app.recording = true;
+                                app.recordingStart = Date.now()-1;
+                                app.recordingEnd = Date.now();
+                                rec.start()
+                            }).then(waitForStop)
+                            .then(()=>{
+                                app.mainText = 'Loading...';
+                                app.recording = false;
+                                return rec.stop()
+                            })
+                            .then((data)=>{
+                                player.srcObject = null
+                                player.src = URL.createObjectURL(data);
+                                player.loop = true;
+                                return player.play().then(()=>end(data,'video-s'))
+                            })
+                        }
+                    })
+                }else if(key == 50){
+                    return waitForStart()
+                    .then(()=>{
+                        let canvas = document.createElement('canvas')
+                        let context = canvas.getContext('2d')
+                        canvas.width = player.videoWidth
+                        canvas.height = player.videoHeight
+                        context.drawImage(player, 0, 0, canvas.width, canvas.height);
+                        let image = document.createElement('img')
+                        image.src =  canvas.toDataURL('image/png')
+                        app.player = image;
+                        return new Promise(function(resolve,reject){
+                            canvas.toBlob(resolve)
+                        })
+                    })
+                    .then((file)=>end(file,'image'))
+                }else if(key = 51){
+                    var audioStream = new MediaStream();
+                    stream.getAudioTracks().forEach(function(track) {
+                        audioStream.addTrack(track);
+                    });
+                    let rec = new Recorder(audioStream,'');
+                    player.srcObject = null
+                    return waitForStart()
+                    .then(()=>{
+                        app.recording = true;
+                        app.recordingStart = Date.now()-1;
+                        app.recordingEnd = Date.now();
+                        rec.start()
+                    }).then(waitForStop)
+                    .then(()=>{
+                        app.mainText = 'Loading...';
+                        app.recording = false;
+                        return rec.stop()
+                    })
+                    .then((data)=>{
+                        player.srcObject = null
+                        player.src = URL.createObjectURL(data);
+                        player.loop = true;
+                        return player.play().then(()=>end(data,'audio'))
+                    })
+                }
+            })
+            .catch((error)=>{
+                console.log(error)
+                return sleep(1000)
+            })
+            .then(()=>{
+                location.reload()
+            })
+        }
+        function waitForStart(){
+            app.mainText = 'Press any button to start';
+            app.controlText = ['start','start','start']
+            return waitForKeyPress([49,50,51]).then(()=>countDown(5))
+        }
+        function waitForStop(){
+            app.mainText = 'Press any button to stop';
+            app.controlText = ['stop','stop','stop']
+            return waitForKeyPress([49,50,51])   
+        }
+        function countDown(time){
+            app.mainText = time;
+            app.controlText = [time,time,time]
+            return sleep(1000)
+            .then(()=>{
+                time--;
+                if(time != 0){
+                    return countDown(time)
+                }else{
+                    app.mainText = '';
+                    app.controlText = ['','','']          
+                }
+            })
+        }
+        function end(file,type){
+            app.mainText = 'Save or start over?';
+            app.controlText = ['save','','start over']
+            return waitForKeyPress([49,51]).then((key)=>{
+                if(key == 51){
+                    throw new Error('start over')
+                }
+            })
+            .then(()=>{
+                app.mainText = 'Can this be displayed at the event?';
+                app.controlText = ['no','','yes']
+                return waitForKeyPress([49,51]).then((key)=>{
+                    if(key == 51){
+                        return true
+                    }
+                    return false;
+                })
+            })
+            .then((permissions)=>{
+                var formData = new FormData();
+                formData.append('upl', file, 'file');
+                return fetch('/upload/'+type+'/'+permissions,{
+                    method: 'post',
+                    body: formData
+                }); 
+            })
+        }
+        function save(){
+            app.mainText = 'Saving...';
+            app.controlText = ['','','']
+            return sleep(4000)
+        }
+/*
+
+
+        .then((stream)=>{
+            player.srcObject = stream
+            return waitForKeyPress().then(()=>stream);
+        })
+        .then((stream)=>{
+            canvas.recording = true;
+            canvas.recordingStart = Date.now();
+            canvas.recordingEnd = Date.now()+10000;
+            let rec = new Recorder(stream)
+            rec.start();
+            return rec
+        })
+        .then((rec)=>sleep(10000).then(()=>rec.stop()))
+        .then((data)=>{
+            canvas.recording = false;
+            player.srcObject = null
+            player.src = URL.createObjectURL(data);
+            player.loop = true;
+            player.play()
+        })
+
+
+
+
+
+
+*/
+
+        /*
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const player = document.createElement('video');
+        function resize(){
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        canvas.addEventListener('onresize', resize);
+        resize()
+        navigator.mediaDevices.getUserMedia({
+            video: true,
+        })
+        .then((stream) => {
+            player.srcObject = stream;
+            let chunks = []
+            let recorder = new MediaRecorder(stream,{mimeType: 'video/webm;codecs=vp9'});
+            recorder.ondataavailable = (event)=>{
+                chunks.push(event.data)
+            }
+            recorder.onstop = ()=>{
+                let blob = new Blob(chunks, { type: 'video/webm'});
+                chunks = []
+                player.srcObject = null;
+                player.src = URL.createObjectURL(blob);
+                player.loop = true;
+                player.play()
+            }
+            recorder.start()
+            setTimeout(()=>recorder.stop(),1000)
+        })
+        .then(()=>{
+            draw()
+        })
+        function draw(){
+
+        }
+        */
+
+        
+    </script>
+</body>
+</html>
